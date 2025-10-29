@@ -1,0 +1,68 @@
+#Versión para colab
+#versión original https://thewolfsound.com/what-is-aliasing-what-causes-it-how-to-avoid-it/
+
+import numpy as np
+import matplotlib.pyplot as plt
+from IPython.display import Audio, display
+
+
+# Configuración de gráficos
+plt.rcParams.update({'font.size': 15})
+xlim = [-15, 15]
+stem_params = {'linefmt': 'C0-', 'markerfmt': 'C0o', 'basefmt': ' '}
+
+
+def signal(A: float, f: float, t: np.ndarray, phi: float = 0.0) -> np.ndarray:
+
+    return A * np.sin(2 * np.pi * f * t + phi)
+
+
+def normalized_dft(signal: np.ndarray, n_fft: int, fs: float):
+
+    dft = np.abs(np.fft.fft(signal[:n_fft]))
+    dft /= np.max(dft)
+    frequencies = np.fft.fftfreq(len(dft), d=1 / fs)
+
+    amplitude_threshold = 0.01
+    mask = dft > amplitude_threshold
+    return dft[mask], frequencies[mask]
+
+
+# --- Ejecución principal ---
+fs = 48000                # Frecuencia de muestreo (Hz)
+time_start = 0.0           # segundos
+signal_duration = 1.0      # segundos
+n_fft = int(0.01 * fs)     # número de muestras para DFT
+t = np.arange(time_start, signal_duration, step=1 / fs)
+
+# Hz a kHz
+divisor = 1_000.0
+fs_plot = fs/divisor
+
+frequencies_to_test = [100, 1000, 10000, 48000]
+attenuation = 0.3
+
+for f in frequencies_to_test:
+    # Generarador de  señal
+    s_t = signal(1.0, f, t)
+
+    # DFT
+    dft, freq = normalized_dft(s_t, n_fft, fs)
+    freq_plot = freq/divisor
+
+    # reproductor de audio
+    print(f"\n Frecuencia: {f} Hz")
+    display(Audio(attenuation * s_t, rate=fs))
+
+    # Graficar
+    plt.figure(figsize=(8, 4))
+    plt.stem(freq_plot, dft, **stem_params)  
+    plt.hlines(y=0, xmin=xlim[0], xmax=xlim[1], colors='black')
+    plt.vlines(x=0, ymin=0, ymax=1.0, colors='gray', linestyles='--')
+    plt.yticks([0, 1])
+    plt.ylabel('Amplitud relativa')
+    plt.xlabel('f [kHz]')
+    plt.title(f"DFT de una onda senoidal de {f} Hz")
+    plt.xlim(xlim)
+    plt.tight_layout()
+    plt.show()
